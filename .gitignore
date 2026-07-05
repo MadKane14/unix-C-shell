@@ -1,0 +1,46 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+shell/shell.out
+
+# Build directories
+shell/obj/
+*/obj/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor/IDE generated files
+.vscode/
+.idea/
+*.swp
+*~
