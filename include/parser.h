@@ -30,4 +30,4 @@ Job parse_input(char *raw_input);
 // Debugging function to print the parsed structure
 void print_job(Job job);
 
-#endif // PARSER_H
+#endif 
