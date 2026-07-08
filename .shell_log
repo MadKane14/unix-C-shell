@@ -1,7 +1,0 @@
-sleep 2 &
-activities
-sleep 100
-sleep 200
-activities
-bg 1
-fg 1

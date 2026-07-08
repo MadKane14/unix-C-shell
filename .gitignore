@@ -44,3 +44,7 @@ Thumbs.db
 .idea/
 *.swp
 *~
+
+# Custom Shell artifacts
+.shell_log
+test*.txt
