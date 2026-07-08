@@ -38,7 +38,7 @@ This shell requires a POSIX-compliant environment (Linux, macOS, or Windows WSL)
 
 1. Clone the repository:
    ```bash
-   git clone [https://github.com/YourUsername/Your-Repo-Name.git](https://github.com/YourUsername/Your-Repo-Name.git)
+   git clone <repository-url>
    cd shell
 
 2. Compile the project using the provided strict Makefile:
