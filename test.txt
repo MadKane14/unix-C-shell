@@ -1,0 +1,11 @@
+.
+..
+.git
+.gitignore
+Makefile
+include
+obj
+shell.out
+src
+test.txt
+test2.txt

@@ -76,27 +76,55 @@ Job parse_input(char *raw_input) {
         cleaned = trim_whitespace(cleaned);  
     }
 
-    // 4. Tokenize by pipe '|'
+    // 4. Tokenize by pipe '|' 
     char *saveptr_pipe;
     char *cmd_token = strtok_r(cleaned, "|", &saveptr_pipe);
     
     while (cmd_token != NULL) {
         if (job.command_count >= MAX_COMMANDS) break;
 
+        // Initialize the cmd and trimmed_cmd variables here!
         Command *cmd = &job.commands[job.command_count];
         char *trimmed_cmd = trim_whitespace(cmd_token);
 
+        // 5. Tokenize the individual command by space to get arguments
         char *saveptr_space;
         char *arg_token = strtok_r(trimmed_cmd, " \t", &saveptr_space);
         
         while (arg_token != NULL) {
-            if (cmd->arg_count == 0) {
-                cmd->name = strdup(arg_token);
+            if (strncmp(arg_token, ">>", 2) == 0) {
+                cmd->append_output = true;
+                // Handle both ">>file" and ">> file"
+                if (strlen(arg_token) > 2) cmd->output_file = strdup(arg_token + 2);
+                else { 
+                    arg_token = strtok_r(NULL, " \t", &saveptr_space); 
+                    if (arg_token) cmd->output_file = strdup(arg_token); 
+                }
+            } else if (arg_token[0] == '>') {
+                cmd->append_output = false;
+                // Handle both ">file" and "> file"
+                if (strlen(arg_token) > 1) cmd->output_file = strdup(arg_token + 1);
+                else { 
+                    arg_token = strtok_r(NULL, " \t", &saveptr_space); 
+                    if (arg_token) cmd->output_file = strdup(arg_token); 
+                }
+            } else if (arg_token[0] == '<') {
+                // Handle both "<file" and "< file"
+                if (strlen(arg_token) > 1) cmd->input_file = strdup(arg_token + 1);
+                else { 
+                    arg_token = strtok_r(NULL, " \t", &saveptr_space); 
+                    if (arg_token) cmd->input_file = strdup(arg_token); 
+                }
+            } else {
+                // It's a standard argument/command name
+                if (cmd->arg_count == 0) {
+                    cmd->name = strdup(arg_token);
+                }
+                cmd->args[cmd->arg_count++] = strdup(arg_token);
             }
-            cmd->args[cmd->arg_count++] = strdup(arg_token);
             arg_token = strtok_r(NULL, " \t", &saveptr_space);
         }
-        cmd->args[cmd->arg_count] = NULL;
+        cmd->args[cmd->arg_count] = NULL; // execvp requires a NULL terminated array!
         
         job.command_count++;
         cmd_token = strtok_r(NULL, "|", &saveptr_pipe);
