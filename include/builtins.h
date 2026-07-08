@@ -10,4 +10,6 @@ bool execute_builtin(Command *cmd);
 // Specific built-in implementations
 void execute_hop(Command *cmd);
 
+void execute_reveal(Command *cmd);
+
 #endif 
