@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <limits.h>
 #include <dirent.h>
+#include "log.h"
 
 // Global state to track the previous directory for "hop -"
 static char previous_dir[PATH_MAX] = "";
@@ -167,6 +168,9 @@ bool execute_builtin(Command *cmd) {
         return true;
     } else if (strcmp(cmd->name, "reveal") == 0) {
         execute_reveal(cmd);
+        return true;
+    } else if (strcmp(cmd->name, "log") == 0) { // ADD THIS
+        execute_log_builtin(cmd);
         return true;
     }
     return false;
