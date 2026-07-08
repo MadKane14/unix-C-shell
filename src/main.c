@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include "jobs.h"
 
 int main() {
     char input_buffer[4096];
@@ -13,6 +14,8 @@ int main() {
     init_log(); // Load history from disk on startup
 
     while (true) {
+        // Harvest any background zombies and print their exit status!
+        check_bg_jobs();
         display_prompt();
         
         if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL) {

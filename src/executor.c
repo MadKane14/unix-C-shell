@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <string.h>
+#include "jobs.h"
 
 void execute_job(Job *job) {
     if (!job->is_valid || job->command_count == 0) {
@@ -121,6 +122,7 @@ void execute_job(Job *job) {
             waitpid(pids[i], NULL, 0);
         }
     } else {
-        printf("[Debug] Background job spawned with %d processes in pipeline.\n", job->command_count);
+        // We use the first command's name (job->commands[0].name) as the identifier.
+        add_bg_job(pids[job->command_count - 1], job->commands[0].name);
     }
 }
