@@ -6,11 +6,13 @@
 #include <string.h>
 #include <stdbool.h>
 #include "jobs.h"
+#include "signals.h"
 
 int main() {
     char input_buffer[4096];
     char original_input[4096]; // To save the unmodified string for the log
 
+    setup_signals(); // Initialize signal catchers!
     init_log(); // Load history from disk on startup
 
     while (true) {
@@ -19,6 +21,7 @@ int main() {
         display_prompt();
         
         if (fgets(input_buffer, sizeof(input_buffer), stdin) == NULL) {
+            kill_all_jobs(); // Required by spec
             printf("\nlogout\n");
             break; 
         }

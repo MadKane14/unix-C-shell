@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include "jobs.h"
+#include "signals.h" // FIXED: Plural "signals.h"
 
 void execute_job(Job *job) {
     if (!job->is_valid || job->command_count == 0) {
@@ -27,7 +28,6 @@ void execute_job(Job *job) {
 
         execute_builtin(cmd);
         
-        // Force the buffer to dump into the file!
         fflush(stdout); 
         
         dup2(saved_stdout, STDOUT_FILENO);
@@ -38,7 +38,7 @@ void execute_job(Job *job) {
     int prev_pipe = -1;
     pid_t pids[MAX_COMMANDS];
 
-    // Loop through the pipeline (e.g., cmd1 | cmd2 | cmd3)
+    // Loop through the pipeline
     for (int i = 0; i < job->command_count; i++) {
         Command *cmd = &job->commands[i];
         int pipe_fd[2];
@@ -56,22 +56,29 @@ void execute_job(Job *job) {
         if (pids[i] < 0) {
             perror("fork");
         } else if (pids[i] == 0) {
-            // CHILD PROCESS
+            // =================CHILD PROCESS=================
+            // Reset signals to default so the child CAN be killed/stopped
+            signal(SIGINT, SIG_DFL);
+            signal(SIGTSTP, SIG_DFL);
 
-            // 1. Read from the previous pipe (if not the first command)
+            // Put the child in a new process group. 
+            if (i == 0) setpgid(0, 0); 
+            else setpgid(0, pids[0]);
+
+            // 1. Read from the previous pipe 
             if (prev_pipe != -1) {
                 dup2(prev_pipe, STDIN_FILENO);
                 close(prev_pipe);
             }
 
-            // 2. Write to the current pipe (if not the last command)
+            // 2. Write to the current pipe
             if (i < job->command_count - 1) {
                 dup2(pipe_fd[1], STDOUT_FILENO);
-                close(pipe_fd[0]); // Child doesn't read from its own pipe
+                close(pipe_fd[0]); 
                 close(pipe_fd[1]);
             }
 
-            // 3. Explicit File Redirections 
+            // 3. Explicit File Redirections
             if (cmd->input_file) {
                 int fd = open(cmd->input_file, O_RDONLY);
                 if (fd < 0) {
@@ -82,7 +89,6 @@ void execute_job(Job *job) {
                 close(fd);
             }
             if (cmd->output_file) {
-                // 0644 means Owner can Read/Write, Group/Others can Read.
                 int flags = O_WRONLY | O_CREAT | (cmd->append_output ? O_APPEND : O_TRUNC);
                 int fd = open(cmd->output_file, flags, 0644); 
                 if (fd < 0) {
@@ -95,22 +101,29 @@ void execute_job(Job *job) {
 
             // 4. Execute the command
             if (execute_builtin(cmd)) {
-                exit(EXIT_SUCCESS); // Builtin completed in child
+                exit(EXIT_SUCCESS); 
             } else if (execvp(cmd->name, cmd->args) == -1) {
                 printf("Command not found!\n");
                 exit(EXIT_FAILURE);
             }
             
         } else {
-            // PARENT PROCESS
+            // =================PARENT PROCESS=================
+            // Parent also calls setpgid to avoid race conditions with the child
+            if (i == 0) {
+                setpgid(pids[0], pids[0]);
+                if (!job->run_in_background) fg_pgid = pids[0]; // Mark as foreground!
+            } else {
+                setpgid(pids[i], pids[0]);
+            }
             
-            // Close the read end of the previous pipe (we are done with it)
+            // Close the read end of the previous pipe
             if (prev_pipe != -1) {
                 close(prev_pipe);
             }
-            // Save the read end of the current pipe for the NEXT child to read from
+            // Save the read end of the current pipe for the NEXT child
             if (i < job->command_count - 1) {
-                close(pipe_fd[1]); // Parent never writes to this pipe
+                close(pipe_fd[1]); 
                 prev_pipe = pipe_fd[0]; 
             }
         }
@@ -118,11 +131,18 @@ void execute_job(Job *job) {
 
     // Wait for all children in the pipeline to finish
     if (!job->run_in_background) {
+        int status;
         for (int i = 0; i < job->command_count; i++) {
-            waitpid(pids[i], NULL, 0);
+            // WUNTRACED allows waitpid to return if the process is paused by Ctrl-Z
+            waitpid(pids[i], &status, WUNTRACED);
+            
+            // If the group leader was paused by Ctrl-Z, add it to the background tracker!
+            if (i == 0 && WIFSTOPPED(status)) {
+                add_bg_job(pids[0], job->commands[0].name, STOPPED);
+            }
         }
+        fg_pgid = -1; // Reset foreground tracking
     } else {
-        // We use the first command's name (job->commands[0].name) as the identifier.
-        add_bg_job(pids[job->command_count - 1], job->commands[0].name);
+        add_bg_job(pids[0], job->commands[0].name, RUNNING);
     }
 }

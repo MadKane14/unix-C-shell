@@ -4,11 +4,14 @@
 #include <string.h>
 #include <unistd.h>
 #include <pwd.h>
+#include <signal.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <limits.h>
 #include <dirent.h>
 #include "log.h"
 #include "jobs.h"
+#include "signals.h"
 
 // Global state to track the previous directory for "hop -"
 static char previous_dir[PATH_MAX] = "";
@@ -163,6 +166,48 @@ void execute_reveal(Command *cmd) {
     }
 }
 
+void execute_ping(Command *cmd) {
+    if (cmd->arg_count != 3) {
+        printf("Invalid syntax!\n"); return;
+    }
+    pid_t pid = atoi(cmd->args[1]);
+    int sig = atoi(cmd->args[2]) % 32;
+
+    if (kill(pid, sig) == 0) printf("Sent signal %d to process with pid %d\n", sig, pid);
+    else printf("No such process found\n");
+}
+
+void execute_fg(Command *cmd) {
+    JobProcess *job = (cmd->arg_count > 1) ? get_job_by_number(atoi(cmd->args[1])) : get_most_recent_job();
+    if (job == NULL) { printf("No such job\n"); return; }
+
+    printf("%s\n", job->command_name);
+    
+    // Resume it and move it to foreground
+    kill(-job->pid, SIGCONT);
+    fg_pgid = job->pid;
+    job->state = RUNNING;
+
+    int status;
+    waitpid(job->pid, &status, WUNTRACED);
+
+    if (WIFSTOPPED(status)) job->state = STOPPED;
+    else remove_job_by_pid(job->pid); // It finished
+    
+    fg_pgid = -1;
+}
+
+void execute_bg(Command *cmd) {
+    JobProcess *job = (cmd->arg_count > 1) ? get_job_by_number(atoi(cmd->args[1])) : get_most_recent_job();
+    if (job == NULL) { printf("No such job\n"); return; }
+    
+    if (job->state == RUNNING) { printf("Job already running\n"); return; }
+
+    job->state = RUNNING;
+    printf("[%d] %s &\n", job->job_number, job->command_name);
+    kill(-job->pid, SIGCONT); // Resume it in the background
+}
+
 bool execute_builtin(Command *cmd) {
     if (strcmp(cmd->name, "hop") == 0) {
         execute_hop(cmd);
@@ -176,6 +221,13 @@ bool execute_builtin(Command *cmd) {
     } else if (strcmp(cmd->name, "activities") == 0) { 
         execute_activities(cmd);
         return true;
+    }else if (strcmp(cmd->name, "ping") == 0) {
+        execute_ping(cmd); return true;
+    } else if (strcmp(cmd->name, "fg") == 0) {
+        execute_fg(cmd); return true;
+    } else if (strcmp(cmd->name, "bg") == 0) {
+        execute_bg(cmd); return true;
     }
+
     return false;
 }

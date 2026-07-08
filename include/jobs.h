@@ -4,21 +4,23 @@
 #include <sys/types.h>
 #include "parser.h"
 
-// A node in our linked list of background processes
+typedef enum { RUNNING, STOPPED } JobState;
+
 typedef struct JobProcess {
-    pid_t pid;
+    pid_t pid; // Acts as the Process Group ID for pipelines
     int job_number;
     char command_name[4096];
+    JobState state;
     struct JobProcess *next;
 } JobProcess;
 
-// Add a new process to the background tracker
-void add_bg_job(pid_t pid, const char *cmd_name);
-
-// Check if any background jobs have finished
+void add_bg_job(pid_t pid, const char *cmd_name, JobState state);
 void check_bg_jobs();
-
-// Built-in command to list running processes
 void execute_activities(Command *cmd);
+
+JobProcess* get_job_by_number(int job_number);
+JobProcess* get_most_recent_job();
+void remove_job_by_pid(pid_t pid);
+void kill_all_jobs();
 
 #endif 
